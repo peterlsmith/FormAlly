@@ -24,10 +24,6 @@
     const asList = (...args) => args.reduce((a, c) => a.concat(c), []);
 
 
-    /** Dictionaries for the predicates, sources, and actions */
-
-    const predicates = Object.create(null), sources = Object.create(null), actions = Object.create(null);
-
 
     /**
      * A few simple (imperfect) regex patterns that can be used for basic validation.
@@ -70,53 +66,40 @@
      * changes between the various components of the validation system.
      */
     function dispatcher() {
-        this.listeners__ = Object.create(null);
+        this.listeners__ = [];
     }
 
 
 
     /**
-     * Adds a listener to a dispatcher for a named event.
+     * Adds a listener to a dispatcher.
      *
-     * @param event     the name of the event to listen on 
-     * @param callback  the listener to be added to the named event
-     * @return          a reference to this instance
+     * @param callback  the listener to be added 
      */
-    dispatcher.prototype.on = function(event, callback) {
-        (this.listeners__[event] || (this.listeners__[event] = [])).push(callback);
-        return this;
+    dispatcher.prototype.onChange = function(callback) {
+        this.listeners__.push(callback);
     };
 
 
 
     /**
-     * Removes a listener from a dispatcher for a named event.
+     * Removes a listener from a dispatcher.
      *
-     * @param event     the name of the event to remove the listener from
-     * @param callback  the listener to be remove from the named event
-     * @return          a reference to this instance
+     * @param callback  the listener to be remove
      */
-    dispatcher.prototype.off = function(event, callback) {
-        if (event in this.listeners__) {
-            this.listeners__[event] = this.listeners__[event].filter(cb => cb !== callback);
-        }
-        return this;
+    dispatcher.prototype.offChange = function(callback) {
+        this.listeners__ = this.listeners__.filter(cb => cb !== callback);
     };
 
 
 
     /**
-     * Triggers all listeners on a named event.
+     * Triggers all listeners on this dispatcher.
      *
-     * @param event  the name of the event to fire
      * @param args   arguments to be passed through to the listeners
-     * @return       a reference to this instance
      */
-    dispatcher.prototype.fire = function(event, ...args) {
-        if (event in this.listeners__) {
-            this.listeners__[event].forEach(l => l.apply(this, args));
-        }
-        return this;
+    dispatcher.prototype.changed = function(...args) {
+        this.listeners__.forEach(l => l.apply(this, args));
     };
 
 
@@ -154,18 +137,12 @@
 
     /** Sets the current state of this predicate */
 
-    _predicate.prototype.state = function(state) {if (state != this.state__) this.fire('state', this.state__ = state, this)};
+    _predicate.prototype.state = function(state) {if (state != this.state__) this.changed(this.state__ = state)};
 
 
     /** Returns the current state of this predicate */
 
     _predicate.prototype.getState = function() {return this.state__};
-
-
-    /* Provide external access to this class for extensions */
-
-    predicates.base = Object.create(null);
-    predicates.base.predicate = _predicate;
 
 
 
@@ -177,7 +154,7 @@
     predicateTrue.prototype = Object.create(_predicate.prototype);
     predicateTrue.prototype.reset = function() {this.state(true)};
     predicateTrue.prototype.destroy = () => {};
-    predicates.true = () => new predicateTrue();
+    _predicate.true = () => new predicateTrue();
 
 
 
@@ -189,7 +166,7 @@
     predicateFalse.prototype = Object.create(_predicate.prototype);
     predicateFalse.prototype.reset = function() {this.state(true)};
     predicateFalse.prototype.destroy = () => {};
-    predicates.false = () => new predicateFalse();
+    _predicate.false = () => new predicateFalse();
 
 
 
@@ -222,13 +199,13 @@
 
         this.sources.forEach((source, i) => {
             this.listener[i] = (value) => callback.call(this, i, value);
-            source.on('change', this.listener[i]);
+            source.onChange(this.listener[i]);
         });
     }
     predicateGeneral.prototype = Object.create(_predicate.prototype);
     predicateGeneral.prototype.reset = function() {for (const source of this.sources) source.reset()};
     predicateGeneral.prototype.destroy = function() {
-        this.sources.forEach((source, i) => source.off('change', this.listener[i]));
+        this.sources.forEach((source, i) => source.change(this.listener[i]));
         for (const source of this.sources) source.destroy();
     };
     predicateGeneral.prototype.check = () => console.error('Predicate check method not implemented');
@@ -236,7 +213,7 @@
 
     /* Provide external access to this class for extensions */
 
-    predicates.base.general = predicateGeneral;
+    _predicate.general = predicateGeneral;
 
 
 
@@ -259,7 +236,7 @@
 
     /* Provide external access to this class for extensions */
 
-    predicates.base.function = predicateFunction;
+    _predicate.function = predicateFunction;
 
 
 
@@ -285,7 +262,7 @@
     predicateChanged.prototype.check = function() {
         this.state(this.original_value.some((v, i) => v != this.data[i]));
     };
-    predicates.changed = (...sources) => new predicateChanged(...sources);
+    _predicate.changed = (...sources) => new predicateChanged(...sources);
 
  
 
@@ -296,7 +273,7 @@
      *
      * @param sources  the sources to check for equality
      */
-    predicates.equal = (...sources) => new predicateFunction((values) => values.every(value => value === values[0]), ...sources);
+    _predicate.equal = (...sources) => new predicateFunction((values) => values.every(value => value === values[0]), ...sources);
 
 
 
@@ -307,7 +284,7 @@
      * @param pattern  the pattern to test the data source values against
      * @param sources  the data sources to test
      */
-    predicates.pattern = (pattern, ...sources) => {
+    _predicate.pattern = (pattern, ...sources) => {
         const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
         return new predicateFunction((values) => values.every(value => regex.test(value)), ...sources);
     };
@@ -321,7 +298,7 @@
      * @param max      the maximum range value (data source must be <=)
      * @param sources  the data sources to verify
      */
-    predicates.range = (min, max, ...sources) => {
+    _predicate.range = (min, max, ...sources) => {
         const _min = parseFloat(min), _max = parseFloat(max);
         return new predicateFunction((values) => values.every(value => {
                 const v = parseFloat(value);
@@ -336,7 +313,7 @@
      * This returns true if all data sources DO NOT contain any value in the provided
      * exclusion list.
      */
-    predicates.exclude = (values, ...sources) => {
+    _predicate.exclude = (values, ...sources) => {
         const _values = values.map(value => value.toLowerCase());
         return new predicateFunction(
             (values) => values.every(value => !_values.includes(value.toLowerCase())),
@@ -359,13 +336,13 @@
         this.fn = fn;
         this.predicates  = asList(predicates);
         this.listener = () => this.check();
-        for(const predicate of this.predicates) predicate.on('state', this.listener);
+        for(const predicate of this.predicates) predicate.onChange(this.listener);
     }
     predicateLogic.prototype = Object.create(_predicate.prototype);
     predicateLogic.prototype.reset = function() {for(const predicate of this.predicates) predicate.reset()};
     predicateLogic.prototype.destroy = function() {
         for(const predicate of this.predicates) {
-            predicate.off('state', this.listener);
+            predicate.offChange(this.listener);
             predicate.destroy();
         }
     };
@@ -377,7 +354,7 @@
 
     /* Provide external access to this class for extensions */
 
-    predicates.base.logic = predicateLogic;
+    _predicate.logic = predicateLogic;
 
 
 
@@ -385,7 +362,7 @@
      * AND predicate.
      * This returns true if all other predicates are true, false otherwise.
      */
-    predicates.and = (...predicates) => new predicateLogic((predicates) => predicates.every(predicate => predicate.getState()), ...predicates);
+    _predicate.and = (...predicates) => new predicateLogic((predicates) => predicates.every(predicate => predicate.getState()), ...predicates);
 
 
 
@@ -393,7 +370,7 @@
      * OR predicate.
      * This returns true if at least on other predicates is true, false otherwise.
      */
-    predicates.or = (...predicates) => new predicateLogic((predicates) => predicates.some(predicate => predicate.getState()), ...predicates);
+    _predicate.or = (...predicates) => new predicateLogic((predicates) => predicates.some(predicate => predicate.getState()), ...predicates);
 
 
 
@@ -402,7 +379,7 @@
      * This returns the inverse of the result of the other predicate. Note that unlike AND and OR, this only
      * takes a single predicate argument.
      */
-    predicates.not = (predicate) => new predicateLogic((predicates) => !predicates[0].getState(), predicate);
+    _predicate.not = (predicate) => new predicateLogic((predicates) => !predicates[0].getState(), predicate);
 
 
 
@@ -416,7 +393,7 @@
 
     /**
      * Base class for all sources.
-     * Sources extend the event dispatcher and are expected to fire a 'change' event
+     * Sources extend the event dispatcher and are expected to trigger a 'change' event
      * with the data source value as the first argument, and the data source itself
      * as the second argument.
      */
@@ -424,15 +401,8 @@
         dispatcher.call(this);
     };
     _source.prototype = Object.create(dispatcher.prototype);
-    _source.prototype.reset = () => console.error('Source reset method not implemented');
-    _source.prototype.destroy = () => console.error('Source destroy method not implemented');
-
-
-    /* Provide external access to this class for extensions */
-
-    sources.base = Object.create(null);
-    sources.base.source = _source;
-
+    _source.prototype.reset = () => {};
+    _source.prototype.destroy = () => {};
 
 
     /**
@@ -445,10 +415,8 @@
         this.value = value;
     };
     sourceConstant.prototype = Object.create(_source.prototype);
-    sourceConstant.prototype.reset = function() {this.fire('change', this.value)}
-    sourceConstant.prototype.destroy = () => {};
-    sources.constant = (value) => new sourceConstant(value);
-
+    sourceConstant.prototype.reset = function() {this.changed(this.value)}
+    _source.constant = (value) => new sourceConstant(value);
 
     
     /**
@@ -468,7 +436,7 @@
         this.eventType = 'input'
         switch (this.input.getAttribute('type')) {
             case 'checkbox':
-                this.listener = () => this.fire('change', this.input.checked, this);
+                this.listener = () => this.changed(this.input.checked);
                 this.eventType = 'change';
                 break;
 
@@ -477,7 +445,7 @@
                 /* fall-thru */
 
             default:
-                this.listener = () => this.fire('change', this.input.value, this);
+                this.listener = () => this.changed(this.input.value);
                 break;
         }
         this.input.addEventListener(this.eventType, this.listener);
@@ -486,8 +454,7 @@
     sourceElement.prototype = Object.create(_source.prototype);
     sourceElement.prototype.reset = function() {this.listener()};
     sourceElement.prototype.destroy = function() {this.input.removeEventListener(this.eventType, this.listener)};
-    sources.element = (selector) => new sourceElement(selector);
-
+    _source.element = (selector) => new sourceElement(selector);
 
 
     /**************************************************************************
@@ -498,6 +465,11 @@
      * nothing more than a lambda/callback function.
      *
      *************************************************************************/
+
+    /** Dictionary for the actions */
+
+    const actions = Object.create(null);
+
 
     /**
      * Wraps a list of actions and executes them all.
@@ -621,11 +593,11 @@
         /* Hook into state changes and invoke the actions */
 
         this.handler = (state) => this.action(state);
-        this.on('state', this.handler);
+        this.onChange(this.handler);
     };
     _connector.prototype = Object.create(predicateLogic.prototype);
     _connector.prototype.destroy = function() {
-        this.off('state', this.handler);
+        this.offChange(this.handler);
         predicateLogic.prototype.destroy.call(this);
     }
 
@@ -643,19 +615,19 @@
         /* If invoked without 'new', set up a default scope */
 
         if (this == null || this == window) return new formally({
-            and: predicates.and,
-            changed: predicates.changed,
-            equal: predicates.equal,
-            exclude: predicates.exclude,
-            FALSE: predicates.false,
-            not: predicates.not,
-            or: predicates.or,
-            pattern: predicates.pattern,
-            range: predicates.range,
-            TRUE: predicates.true,
+            and: _predicate.and,
+            changed: _predicate.changed,
+            equal: _predicate.equal,
+            exclude: _predicate.exclude,
+            FALSE: _predicate.false,
+            not: _predicate.not,
+            or: _predicate.or,
+            pattern: _predicate.pattern,
+            range: _predicate.range,
+            TRUE: _predicate.true,
 
-            constant: sources.constant,
-            element: sources.element,
+            constant: _source.constant,
+            element: _source.element,
 
             all: actions.all,
             alt: actions.alt,
@@ -666,8 +638,8 @@
         }, ...scopes);
 
         const context = Object.create(null);
-        context.predicate = predicates;
-        context.source = sources;
+        context.predicate = _predicate;
+        context.source = _source;
         context.action = actions;
         context.regex = regex;
         context.validator = (predicates, actions) => new _connector(predicates, actions);
@@ -689,8 +661,8 @@
     /* Make the concrete classes directly available for derivations */
 
     formally.validator = (predicates, actions) => new _connector(predicates, actions);
-    formally.predicate = predicates;
-    formally.source = sources;
+    formally.predicate = _predicate;
+    formally.source = _source;
     formally.action = actions;
 
     /* Publish the  API */
