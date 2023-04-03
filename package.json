@@ -1,0 +1,17 @@
+{
+    "name": "formally",
+    "version": "1.0.0",
+    "description": "Simple JavaScript form validation and feedback library",
+    "main": "formally.js",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/peterlsmith/FormAlly.git"
+    },
+    "keywords": ["validate", "web", "form", "javascript", "dom"],
+    "author": "Peter Smith",
+    "license": "Apache 2.0",
+    "bugs": {
+        "url": "https://github.com/peterlsmith/FormAlly/issues"
+    },
+    "homepage": "https://github.com/peterlsmith/FormAlly"
+}

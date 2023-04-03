@@ -1,20 +1,32 @@
 /******************************************************************************
  *                         FormAlly.js
  *
- * Provides web form input validation and feedback utilities.
+ * Web form input validation and feedback utilities.
  *
  * This libary can be used to easily add validation and feedback to web
  * based forms. It is simple to add retrospectively and it is easy to extend.
  *
  *
- * @author Peter Smith
+ *   Copyright 2023 Peter Smith
  *
- *****************************************************************************/
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ ******************************************************************************/
+
 'use strict';
 
 (function(){
 
-    /** Error function */
+    /** Error function - raises exceptions in unrecoverable situations */
 
     const error = (msg) => { throw new Error(msg)};
 
@@ -41,6 +53,7 @@
 
     /**
      * Utility method for identifying a DOM element using a selector.
+     *
      * @param selector  the element selector - this can be a string (for use with element.querySelector),
      *                  an actual element, or a JQuery object.
      */
@@ -132,7 +145,7 @@
 
     /** Cleans up the predicate, freeing any resources */
 
-    _predicate.prototype.destroy = () => console.error('Predicate destroy method not implemented');
+    _predicate.prototype.destroy = () => {};
 
 
     /** Sets the current state of this predicate */
@@ -153,7 +166,6 @@
     const predicateTrue = function() {_predicate.call(this)}
     predicateTrue.prototype = Object.create(_predicate.prototype);
     predicateTrue.prototype.reset = function() {this.state(true)};
-    predicateTrue.prototype.destroy = () => {};
     _predicate.true = () => new predicateTrue();
 
 
@@ -164,8 +176,7 @@
      */
     const predicateFalse = function() {_predicate.call(this)}
     predicateFalse.prototype = Object.create(_predicate.prototype);
-    predicateFalse.prototype.reset = function() {this.state(true)};
-    predicateFalse.prototype.destroy = () => {};
+    predicateFalse.prototype.reset = function() {this.state(false)};
     _predicate.false = () => new predicateFalse();
 
 
@@ -186,7 +197,7 @@
         this.data     = new Array(this.sources.length);
         this.listener = new Array(this.sources.length);
 
-        /* Function to create a callback to listen on a given source */
+        /* Function to create a callback to listen on a given source to cache the source value */
 
         const callback = (i, value) => {
             if (value !== this.data[i]) {
@@ -523,14 +534,15 @@
 
     /**
      * Applies (or removes) a class name to an element's class list.
-     * Given that most CSS frameworks apply classes to an element to indicate something is in a
-     * bad or incomplete state, this action applies a class if the predicate is false and removes
-     * the class when the predicate becomes true. This can be wrapped in an 'alt' action to
-     * reverse the operation.
+     * This action will apply and remove named classes from an elements class list depending upon
+     * whether or not the predicate result is true or false. Classes that are applied will also be
+     * removed when the predicate result changes.
      *
-     * @param selector   the selector for the element whos class list is to be modified
-     * @param classnames  the class names to apply/remove. This can be a single value or
-     *                    a list of values
+     * @param selector     the selector for the element whos class list is to be modified
+     * @param trueStyles   the class names to apply when the predicate is true. This can be a single 
+     *                     value or a list of values
+     * @param falseStyles  the class names to apply when the predicate is false. This can be a single 
+     *                     value or a list of values
      */
     actions.style = (selector, trueStyles, falseStyles) => {
         const element = getInput(selector),
@@ -586,8 +598,8 @@
      * @param predicates  a predicate (or array of predicates) used to determine validity
      * @param action      an action (or array of actions) to execute based on the predicate results.
      */
-    const _connector = function(predicates, action) {
-        predicateLogic.call(this, (predicates) => predicates.every(predicate => predicate.getState()), predicates);
+    const _connector = function(predicate, action) {
+        predicateLogic.call(this, (predicates) => predicates.every(predicate => predicate.getState()), predicate);
         this.action = actions.all(action);
 
         /* Hook into state changes and invoke the actions */
@@ -642,7 +654,7 @@
         context.source = _source;
         context.action = actions;
         context.regex = regex;
-        context.validator = (predicates, actions) => new _connector(predicates, actions);
+        context.validator = (predicate, action) => new _connector(predicate, action);
         if (scopes.length) Object.assign(context, ...scopes);
 
         this.context = context;
@@ -658,9 +670,9 @@
     };
 
 
-    /* Make the concrete classes directly available for derivations */
+    /* EXpose the API */
 
-    formally.validator = (predicates, actions) => new _connector(predicates, actions);
+    formally.validator = (predicate, action) => new _connector(predicate, action);
     formally.predicate = _predicate;
     formally.source = _source;
     formally.action = actions;

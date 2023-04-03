@@ -1,7 +1,16 @@
 # FormAlly
 A simple javascript library for adding web form input validation and feedback.
 
-This library makes it very easy to retroactively add validation and feedback to form input elements, such as applying styles, disabling buttons, etc, on the basis of values entered within the form. It usually does not require modifying the form HTML.  
+This library makes it very easy to retroactively add validation and feedback to form input elements, such as applying styles, disabling buttons, etc, on the basis of values entered within the form. This library does not have any dependencies, and in most cases does not require any modifications the form HTML. Configuring validators can usually be done in a single method call:
+
+```
+    formally().fromString(  
+        `validator(
+            pattern(/^[\\w.%+-]+@[\\w.-]+\\.[\\w]{2,}$/, element('#email')),
+            enable('#submit')
+        )`
+    ).reset();
+```
 
 ## Overview
 The validation system implemented by FormAlly is based on **sources**, **predicate**, and **actions**.  
@@ -342,7 +351,7 @@ Sources must extend the FormAlly 'source' object. In this example, we create a c
 ```
 
 ### Extending Predicates
-As with sources, custom predicates should extend the FormAlly 'predicate' object. This following is a simple timer predicate that only returns true 5 seconds after the validator has been reset.
+As with sources, custom predicates should extend the FormAlly 'predicate' object. The following is a simple timer predicate that only returns true 5 seconds after the validator has been reset.
 
 ```
     const predicateTimer = function() {
