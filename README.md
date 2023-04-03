@@ -1,5 +1,5 @@
 # FormAlly
-A simple javascript library for adding web form input validation and feedback.
+A small and lightweight javascript library for adding web form input validation and feedback.
 
 This library makes it very easy to retroactively add validation and feedback to form input elements, such as applying styles, disabling buttons, etc, on the basis of values entered within the form. This library does not have any dependencies, and in most cases does not require any modifications the form HTML. Configuring validators can usually be done in a single method call:
 
@@ -17,7 +17,7 @@ The validation system implemented by FormAlly is based on **sources**, **predica
 
  - **sources** are usually used to monitor values of interest, such as an input field on a form, but they may also be used for constant values or even dynamic data, such as a timer value. Sources generate events when changes occur in the data value they monitor.
 
- - **predicates** are tests that check the validity of specific condition, and usually involve a source. For example, a predicate may test a source data value representing an input field against a regualar expression. A predicate will listen to events on any sources they use and evaluate their corresponding tests to determine whether the condition is true or false. When a predicate state changes from true to false or false to true, it generates events.
+ - **predicates** are tests that check the validity of specific condition, and usually involve a source. For example, a predicate may test a source data value representing an input field against a regular expression. A predicate will listen to events on any sources they use and evaluate their corresponding tests to determine whether the condition is true or false.
 
  - **actions** are simple functions - such as lambda functions - that are executed by the validation when a corresponding predicate changes state. For example, an action may apply a style to a form element to indicate validity. The action is passed the predicate state when invoked.
 
@@ -138,12 +138,15 @@ The ``and`` predicate wraps one or more other predicates, ands acts as a logical
 The ``changed`` predicate monitors the value of one or more input fields and returns true if any one of them has changed from its initial value. e.g.
 
 ```
-    formally.validator(
-        formally.predicate.equals(
-            formally.source.element('#input1'),
-            formally.source.constant('hello')
-        ),
-        formally.action.style('#save')
+    formally().fromString(  
+        `validator(
+            changed(
+                element('#input1'),
+                element('#input2'),
+                element('#input3')
+            )
+            enable('#submit')
+        )`
     ).reset();
 ```
 
@@ -176,7 +179,7 @@ The ``exclude`` predicate can be used to make sure specific values are not used 
     ).reset();
 ```
 
-Note that this predicate is case insensitive.
+Note that this predicate performs case insensitive matches.
 
 
 **false**  
@@ -190,7 +193,7 @@ This predicate can be used to wrap another predicate and invert its value. e.g.
 ```
     formally.validator(
         formally.predicate.not(
-            formally.predicate.pattern('/^root$/',formally.source.element('#username'))
+            formally.predicate.pattern('/^root$/', formally.source.element('#username'))
         ),
         formally.action.enable('#submit')
     ).reset();
@@ -245,7 +248,7 @@ This source represents a simple constant value. It can be used in, for example, 
     formally.validator(
         formally.predicate.equals(
             formally.source.element('#username'),
-            fomrally.source.constant('root')
+            formally.source.constant('root')
         ),
         formally.action.style('#login', 'is-invalid')
     ).reset();
@@ -272,17 +275,30 @@ This source monitors a value in a form field - for example, a text input, checkb
 This action wraps a list of other actions an executes them sequentially. For example:
 
 ```
-    formally.validator(
-        formally.predicate.changed(formally.source.element('#input')),
-        formally.action.all(
-            formally.action.enable('#extra-options')
-            formally.action.enable('#save')
-        )
+    formally().fromString(  
+        `validator(
+            changed(element('#input')),
+            all(
+                enable('#extra-options'),
+                enable('#save')
+            )
+        )`
     ).reset();
 ```
 
 **alt**  
 This action wraps another action and inverts the predicate state prior to calling it. This effectively reverses the action.
+```
+    formally.validator(
+        formally.predicate.equals(
+            formally.source.element('#username'),
+            formally.source.constant('root')
+        ),
+        formally.action.alt(
+            formally.action.enable('#submit')
+        )
+    ).reset();
+```
 
 **debounce**  
 This action wraps another action and is used to reduce the frequency with which the wrapped action is executed. It does this by caching the predicate state for a short period of time to see if any more updates occur. If another update occurs before the time period expires, the old state is dropped and the new state is cached. If no new update occurs before the end of the timer period, the wrapped action is invoked with the cached value.
